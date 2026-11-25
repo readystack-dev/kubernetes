@@ -1,0 +1,21 @@
+{
+  "cniVersion": "1.0.0",
+  "name": "readystack",
+  "plugins": [
+    {
+      "type": "ptp",
+      "ipMasq": true,
+      "mtu": @MTU@,
+      "ipam": {
+        "type": "host-local",
+        "dataDir": "/run/cni-ipam-state",
+        "ranges": [[{ "subnet": "@POD_SUBNET@" }]],
+        "routes": [{ "dst": "0.0.0.0/0" }]
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": { "portMappings": true }
+    }
+  ]
+}

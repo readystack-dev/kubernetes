@@ -1,0 +1,16 @@
+# kube-proxy configuration for the single-node mode (kube-svc fills @POD_CIDR@). conntrack is left as the host has it
+# (maxPerCore 0 and zero timeouts mean "do not change"): those settings are the host kernel's, not this container's.
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+clientConnection:
+  kubeconfig: /var/lib/kubernetes/kube-proxy.conf
+mode: iptables
+clusterCIDR: "@POD_CIDR@"
+bindAddress: 0.0.0.0
+healthzBindAddress: 127.0.0.1:10256
+metricsBindAddress: 127.0.0.1:10249
+conntrack:
+  maxPerCore: 0
+  min: 0
+  tcpEstablishedTimeout: 0s
+  tcpCloseWaitTimeout: 0s

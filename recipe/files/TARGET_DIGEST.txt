@@ -1,0 +1,7 @@
+image_manifest_digest=sha256:8e96c66033909e37d0116d6376e20474391c1251dd244745db7c5bca55b69ab5
+config_digest=sha256:0cb5d9fd78bd9a455670e57ecc4755529053401473c863d3c05008b423ddb8ad
+tag=readystack/kubernetes:v1.37.2-CE-ubuntu24.04-r4
+probe_port=6443
+probe_path=/
+probe_timeout=300
+probe_exec=curl -fsk https://127.0.0.1:6443/livez

@@ -1,0 +1,35 @@
+# kubelet configuration for the single-node mode (kube-svc fills @DNS_IP@). Values differing from kubelet's defaults are
+# for running inside a privileged container: cgroups under /kubelet (cgroupfs; there is no systemd), swap tolerated,
+# kernel settings checked but never written (protectKernelDefaults; kube-entrypoint.sh explains), eviction only when
+# the host disk is nearly full.
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+authentication:
+  anonymous:
+    enabled: false
+  webhook:
+    enabled: true
+  x509:
+    clientCAFile: /var/lib/kubernetes/pki/ca.crt
+authorization:
+  mode: Webhook
+cgroupDriver: cgroupfs
+cgroupRoot: /kubelet
+clusterDNS:
+  - "@DNS_IP@"
+clusterDomain: cluster.local
+containerRuntimeEndpoint: unix:///run/containerd/containerd.sock
+failSwapOn: false
+memorySwap:
+  swapBehavior: NoSwap
+protectKernelDefaults: true
+resolvConf: /run/kubernetes/resolv.conf
+staticPodPath: /var/lib/kubernetes/manifests
+healthzBindAddress: 127.0.0.1
+rotateCertificates: false
+serverTLSBootstrap: false
+evictionHard:
+  memory.available: "100Mi"
+  nodefs.available: "5%"
+  nodefs.inodesFree: "5%"
+  imagefs.available: "5%"

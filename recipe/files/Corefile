@@ -1,0 +1,22 @@
+# Cluster DNS (kube-svc fills @ADVERTISE@): CoreDNS answers on this container's address, which the kube-dns Service
+# forwards to; names outside the cluster go to the container's own resolvers.
+.:53 {
+    bind @ADVERTISE@
+    errors
+    health 127.0.0.1:8080
+    ready 127.0.0.1:8181
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+        kubeconfig /var/lib/kubernetes/coredns.conf
+        pods insecure
+        fallthrough in-addr.arpa ip6.arpa
+        ttl 30
+    }
+    prometheus 127.0.0.1:9153
+    forward . /etc/resolv.conf {
+        max_concurrent 1000
+    }
+    cache 30
+    loop
+    reload
+    loadbalance
+}

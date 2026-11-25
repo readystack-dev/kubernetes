@@ -1,0 +1,9 @@
+{
+  "schema": "kitforge.source_tree_hash.v1",
+  "slug": "kubernetes",
+  "repo": "https://github.com/kubernetes/kubernetes",
+  "ref": "v1.37.2",
+  "commit": "c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32",
+  "tree_listing_sha256": "b6f41eac32ed0acabe358cf8afdac9fe0bdf9b38a0950f0f5a258d081acab553",
+  "file_count": 31265
+}

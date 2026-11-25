@@ -1,0 +1,180 @@
+# =====================================================================
+# Kubernetes v1.37.2 VENDOR STAGE (online). Does ALL the network work and exports build-ready, fully vendored source
+# trees, so Dockerfile.offline.pinned builds every binary with --network=none. Every bundled binary is built FROM
+# SOURCE at its upstream release tag on one Go toolchain (golang 1.26.10); nothing is a downloaded release binary:
+#   - kubernetes-src : kubernetes v1.37.2 (kube-apiserver, kube-controller-manager, kube-scheduler, kubelet,
+#                      kube-proxy, kubectl, kubeadm, and the pause container's pause.c)
+#   - containerd-src : containerd v2.4.2 (containerd, containerd-shim-runc-v2, ctr)
+#   - runc-src       : runc v1.5.2 (CGO + libseccomp; seccomp-debs carries Debian's libseccomp-dev for the build)
+#   - cni-src        : containernetworking/plugins v1.9.1 (bridge, host-local, loopback, portmap, ptp, bandwidth,
+#                      tuning, firewall)
+#   - critools-src   : cri-tools v1.37.0 (crictl)
+#   - etcd-src       : etcd v3.7.2 (etcd, etcdctl, etcdutl)
+#   - coredns-src    : CoreDNS v1.15.0
+#   - debs           : apt dist-upgrade closure + runtime packages from the SAME pinned ubuntu base the offline
+#                      build FROMs, dpkg-installed offline.
+# CVE floors (mirror strategies/kubernetes.json dep_bumps) are raise-only: a module is moved only when the release pins
+# it LOWER, never lowered, and only to an exact version (never @latest: an unbounded floor resolves differently on every
+# vendor run). Measured 2026-10-22 on the same binaries built without floors (grype 0.120.1, Docker Scout fs://):
+# x/net 0.55-0.58 (1 critical + 4 high, fixed 0.60.0) in every binary but CoreDNS and the CNI plugins; x/crypto
+# 0.54/0.55, x/text 0.40, grpc 1.82.1 and the etcd client 3.7.0 in the kubernetes binaries; x/mod 0.38 in crictl;
+# moby/sys/user 0.4.0 in runc. Go stdlib 1.26.10: none. x/net raised 0.60.0 -> 0.62.0 on 2026-11-07: CVE-2026-78661 /
+# GO-2026-6860 (high, fixed 0.62.0), found at 0.60.0 in all 16 Go binaries by ReadyStack's daily scan of v1.37.1-r2.
+# Export (assemble_kit): docker build -f Dockerfile.vendor --target export, then docker cp the image's / into ./vendored
+# =====================================================================
+
+# --- 1) kubernetes: floors applied with upstream's own tooling, then upstream's vendor update -------------------------
+# kubernetes is a Go workspace (go.work: the root module + 30 staging modules) with a committed workspace vendor/.
+# hack/pin-dependency.sh raises a module in the root and every staging go.mod; hack/update-vendor.sh re-tidies every
+# module and regenerates vendor/ exactly as upstream does for its own dependency bumps.
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS kubernetesvendor
+ENV GOTOOLCHAIN=local
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends jq >/dev/null && rm -rf /var/lib/apt/lists/*
+WORKDIR /k8s
+RUN git clone --depth 1 --branch v1.37.2 -q https://github.com/kubernetes/kubernetes.git . && \
+    test "$(git rev-parse HEAD)" = c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32
+# The probe fails closed (L-A133): only "not a known dependency", or in this vendored workspace "can't resolve module
+# using the vendor directory", means the module is not in the build; any other error stops the step.
+RUN plan=""; \
+    for f in golang.org/x/net@v0.62.0 golang.org/x/crypto@v0.56.0 golang.org/x/text@v0.41.0 golang.org/x/mod@v0.40.0 \
+             google.golang.org/grpc@v1.83.2 github.com/klauspost/compress@v1.18.7 \
+             go.etcd.io/etcd/api/v3@v3.7.2 go.etcd.io/etcd/client/pkg/v3@v3.7.2 go.etcd.io/etcd/client/v3@v3.7.2; do \
+      m=${f%@*}; v=${f#*@}; c=$(go list -m -f '{{.Version}}' "$m" 2>/tmp/floor-probe.err) || \
+        { grep -Eq "not a known dependency|can't resolve module using the vendor directory" /tmp/floor-probe.err || \
+          { cat /tmp/floor-probe.err >&2; exit 1; }; c=; }; \
+      [ -n "$c" ] || { echo "floor $m: not a dependency"; continue; }; \
+      [ "$(printf '%s\n%s\n' "$c" "$v" | sort -V | tail -1)" = "$c" ] && { echo "floor $m: $c kept"; continue; }; \
+      echo "floor $m: $c -> $v"; plan="$plan $f"; \
+    done; \
+    for f in $plan; do hack/pin-dependency.sh "${f%@*}" "${f#*@}" >/dev/null || exit 1; done; \
+    hack/update-vendor.sh >/tmp/update-vendor.log 2>&1 || { tail -40 /tmp/update-vendor.log; exit 1; }; \
+    test "$(go list -m -f '{{.Version}}' golang.org/x/net)" = v0.62.0 && \
+    test "$(go list -m -f '{{.Version}}' google.golang.org/grpc)" = v1.83.2 && \
+    chmod -R u+w _output && rm -rf _output .git
+# ^ _output is update-vendor.sh's scratch GOPATH (a read-only module cache); vendor/ is what the build uses.
+
+# Common raise-only floor for the single-module trees below (GOWORK=off, -mod=mod): a module the source pins with a
+# REPLACE has the replace raised instead (a replace overrides require).
+# --- 2) containerd v2.4.2 ---------------------------------------------------------------------------------------------
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS containerdvendor
+ENV GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
+WORKDIR /containerd
+RUN git clone --depth 1 --branch v2.4.2 -q https://github.com/containerd/containerd.git . && \
+    test "$(git rev-parse HEAD)" = b7a25261e029d68978bbf290df0a62fc819b3c51
+# floor() fails closed (L-A133): `go list -mod=mod`, and only "not a known dependency" skips a module; any other
+# error (a missing go.sum entry after an earlier raise, the proxy unreachable) stops the step instead of skipping
+# every later floor, as caddy chain 741 did.
+RUN floor() { e=$(mktemp); cur=$(go list -mod=mod -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' "$1" 2>"$e") || \
+        { grep -q 'not a known dependency' "$e" && return 0; cat "$e" >&2; return 1; }; \
+      [ -n "$cur" ] || return 0; [ "$(printf '%s\n%s\n' "$cur" "$2" | sort -V | tail -1)" = "$cur" ] && return 0; \
+      echo "floor $1: $cur -> $2"; \
+      rp=$(go list -mod=mod -m -f '{{if .Replace}}r{{end}}' "$1") || return 1; if [ -n "$rp" ]; then go mod edit -replace="$1=$1@$2"; \
+      else go mod edit -require="$1@$2"; fi; } && \
+    floor golang.org/x/net v0.62.0 && floor golang.org/x/crypto v0.56.0 && floor golang.org/x/text v0.41.0 && \
+    floor golang.org/x/mod v0.40.0 && floor google.golang.org/grpc v1.83.2 && floor github.com/klauspost/compress v1.20.2 && floor github.com/go-jose/go-jose/v4 v4.1.6 && \
+    go mod tidy && go mod vendor && rm -rf .git
+
+# --- 3) runc v1.5.2 (and Debian's libseccomp-dev for its CGO build) ----------------------------------------------------
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS runcvendor
+ENV GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
+WORKDIR /runc
+RUN git clone --depth 1 --branch v1.5.2 -q https://github.com/opencontainers/runc.git . && \
+    test "$(git rev-parse HEAD)" = 29dd3dc2b13b4123162e5fe132504bb4b15569f1
+RUN floor() { e=$(mktemp); cur=$(go list -mod=mod -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' "$1" 2>"$e") || \
+        { grep -q 'not a known dependency' "$e" && return 0; cat "$e" >&2; return 1; }; \
+      [ -n "$cur" ] || return 0; [ "$(printf '%s\n%s\n' "$cur" "$2" | sort -V | tail -1)" = "$cur" ] && return 0; \
+      echo "floor $1: $cur -> $2"; \
+      rp=$(go list -mod=mod -m -f '{{if .Replace}}r{{end}}' "$1") || return 1; if [ -n "$rp" ]; then go mod edit -replace="$1=$1@$2"; \
+      else go mod edit -require="$1@$2"; fi; } && \
+    floor golang.org/x/net v0.62.0 && floor golang.org/x/crypto v0.56.0 && floor golang.org/x/text v0.41.0 && \
+    floor github.com/moby/sys/user v0.4.1 && floor google.golang.org/grpc v1.83.2 && floor github.com/go-jose/go-jose/v4 v4.1.6 && floor github.com/klauspost/compress v1.20.2 && \
+    go mod tidy && go mod vendor && rm -rf .git
+# libseccomp-dev + the exact libseccomp2 it depends on, from the Debian release the pinned Go builder is (bookworm),
+# dpkg-installed in the offline runc build stage. At run time runc links Ubuntu's own libseccomp2 (runtime package).
+RUN mkdir -p /seccomp-debs && cd /seccomp-debs && apt-get update -qq && \
+    apt-get download libseccomp-dev libseccomp2 >/dev/null 2>&1 && ls -1 *.deb && rm -rf /var/lib/apt/lists/*
+
+# --- 4) CNI plugins v1.9.1 ---------------------------------------------------------------------------------------------
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS cnivendor
+ENV GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
+WORKDIR /cni
+RUN git clone --depth 1 --branch v1.9.1 -q https://github.com/containernetworking/plugins.git . && \
+    test "$(git rev-parse HEAD)" = adc3e6b5b581638afbd194cf2e9319ecbb0151a1
+RUN floor() { e=$(mktemp); cur=$(go list -mod=mod -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' "$1" 2>"$e") || \
+        { grep -q 'not a known dependency' "$e" && return 0; cat "$e" >&2; return 1; }; \
+      [ -n "$cur" ] || return 0; [ "$(printf '%s\n%s\n' "$cur" "$2" | sort -V | tail -1)" = "$cur" ] && return 0; \
+      echo "floor $1: $cur -> $2"; \
+      rp=$(go list -mod=mod -m -f '{{if .Replace}}r{{end}}' "$1") || return 1; if [ -n "$rp" ]; then go mod edit -replace="$1=$1@$2"; \
+      else go mod edit -require="$1@$2"; fi; } && \
+    floor golang.org/x/net v0.62.0 && floor golang.org/x/crypto v0.56.0 && floor golang.org/x/text v0.41.0 && \
+    floor google.golang.org/grpc v1.83.2 && floor github.com/go-jose/go-jose/v4 v4.1.6 && floor github.com/klauspost/compress v1.20.2 && \
+    go mod tidy && go mod vendor && rm -rf .git
+
+# --- 5) cri-tools v1.37.0 ----------------------------------------------------------------------------------------------
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS critoolsvendor
+ENV GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
+WORKDIR /critools
+RUN git clone --depth 1 --branch v1.37.0 -q https://github.com/kubernetes-sigs/cri-tools.git . && \
+    test "$(git rev-parse HEAD)" = 13496db06e3f6636a0855977dd86344698dfc501
+RUN floor() { e=$(mktemp); cur=$(go list -mod=mod -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' "$1" 2>"$e") || \
+        { grep -q 'not a known dependency' "$e" && return 0; cat "$e" >&2; return 1; }; \
+      [ -n "$cur" ] || return 0; [ "$(printf '%s\n%s\n' "$cur" "$2" | sort -V | tail -1)" = "$cur" ] && return 0; \
+      echo "floor $1: $cur -> $2"; \
+      rp=$(go list -mod=mod -m -f '{{if .Replace}}r{{end}}' "$1") || return 1; if [ -n "$rp" ]; then go mod edit -replace="$1=$1@$2"; \
+      else go mod edit -require="$1@$2"; fi; } && \
+    floor golang.org/x/net v0.62.0 && floor golang.org/x/crypto v0.56.0 && floor golang.org/x/text v0.41.0 && \
+    floor golang.org/x/mod v0.40.0 && floor google.golang.org/grpc v1.83.2 && floor github.com/go-jose/go-jose/v4 v4.1.6 && floor github.com/klauspost/compress v1.20.2 && \
+    go mod tidy && go mod vendor && rm -rf .git
+
+# --- 6) etcd v3.7.2: server/, etcdctl/ and etcdutl/ are separate modules (replace => ../api etc.), each vendored ------
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS etcdvendor
+ENV GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
+WORKDIR /etcd
+RUN git clone --depth 1 --branch v3.7.2 -q https://github.com/etcd-io/etcd.git . && \
+    test "$(git rev-parse HEAD)" = 68c065e562994b89e333e77b039ad066f933c586
+RUN floor() { e=$(mktemp); cur=$(go list -mod=mod -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' "$1" 2>"$e") || \
+        { grep -q 'not a known dependency' "$e" && return 0; cat "$e" >&2; return 1; }; \
+      [ -n "$cur" ] || return 0; [ "$(printf '%s\n%s\n' "$cur" "$2" | sort -V | tail -1)" = "$cur" ] && return 0; \
+      echo "floor $1: $cur -> $2"; \
+      rp=$(go list -mod=mod -m -f '{{if .Replace}}r{{end}}' "$1") || return 1; if [ -n "$rp" ]; then go mod edit -replace="$1=$1@$2"; \
+      else go mod edit -require="$1@$2"; fi; } && \
+    for d in server etcdctl etcdutl; do ( cd "$d" && \
+      floor golang.org/x/net v0.62.0 && floor golang.org/x/crypto v0.56.0 && floor golang.org/x/text v0.41.0 && \
+      floor google.golang.org/grpc v1.83.2 && floor github.com/go-jose/go-jose/v4 v4.1.6 && floor github.com/klauspost/compress v1.20.2 && go mod tidy && go mod vendor ) || exit 1; done && rm -rf .git
+
+# --- 7) CoreDNS v1.15.0 ------------------------------------------------------------------------------------------------
+FROM golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0 AS corednsvendor
+ENV GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
+WORKDIR /coredns
+RUN git clone --depth 1 --branch v1.15.0 -q https://github.com/coredns/coredns.git . && \
+    test "$(git rev-parse HEAD)" = a6fde3fe339c6ec848447e11cc9796be8c97b4e0
+RUN floor() { e=$(mktemp); cur=$(go list -mod=mod -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' "$1" 2>"$e") || \
+        { grep -q 'not a known dependency' "$e" && return 0; cat "$e" >&2; return 1; }; \
+      [ -n "$cur" ] || return 0; [ "$(printf '%s\n%s\n' "$cur" "$2" | sort -V | tail -1)" = "$cur" ] && return 0; \
+      echo "floor $1: $cur -> $2"; \
+      rp=$(go list -mod=mod -m -f '{{if .Replace}}r{{end}}' "$1") || return 1; if [ -n "$rp" ]; then go mod edit -replace="$1=$1@$2"; \
+      else go mod edit -require="$1@$2"; fi; } && \
+    floor golang.org/x/net v0.62.0 && floor golang.org/x/crypto v0.56.0 && floor golang.org/x/text v0.41.0 && \
+    floor google.golang.org/grpc v1.83.2 && floor github.com/klauspost/compress v1.20.2 && floor github.com/go-jose/go-jose/v4 v4.1.6 && \
+    go mod tidy && go mod vendor && rm -rf .git
+
+# --- 8) apt CVE dist-upgrade closure + runtime packages (offline dpkg install) -----------------------------------------
+FROM ubuntu:24.04@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289 AS debvendor
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get -y --download-only --no-install-recommends dist-upgrade && \
+    apt-get -y --download-only --no-install-recommends install \
+      ca-certificates curl tzdata supervisor openssl iptables iproute2 conntrack libseccomp2 && \
+    mkdir -p /debs && cp /var/cache/apt/archives/*.deb /debs/ && \
+    echo "vendored $(ls -1 /debs/*.deb | wc -l) debs"
+
+FROM scratch AS export
+COPY --from=kubernetesvendor /k8s /kubernetes-src
+COPY --from=containerdvendor /containerd /containerd-src
+COPY --from=runcvendor /runc /runc-src
+COPY --from=runcvendor /seccomp-debs /seccomp-debs
+COPY --from=cnivendor /cni /cni-src
+COPY --from=critoolsvendor /critools /critools-src
+COPY --from=etcdvendor /etcd /etcd-src
+COPY --from=corednsvendor /coredns /coredns-src
+COPY --from=debvendor /debs /debs

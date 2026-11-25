@@ -1,0 +1,66 @@
+# Applied by kube-init at every start in the single-node mode (@DNS_IP@ / @ADVERTISE@ filled in).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:coredns
+rules:
+  - apiGroups: [""]
+    resources: [endpoints, services, pods, namespaces]
+    verbs: [list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: system:coredns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:coredns
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: system:coredns
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  namespace: kube-system
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/name: CoreDNS
+spec:
+  clusterIP: "@DNS_IP@"
+  ports:
+    - name: dns
+      port: 53
+      protocol: UDP
+      targetPort: 53
+    - name: dns-tcp
+      port: 53
+      protocol: TCP
+      targetPort: 53
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: kube-dns-readystack
+  namespace: kube-system
+  labels:
+    kubernetes.io/service-name: kube-dns
+    endpointslice.kubernetes.io/managed-by: kube-init.readystack.dev
+addressType: IPv4
+endpoints:
+  - addresses: ["@ADVERTISE@"]
+    conditions:
+      ready: true
+ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP

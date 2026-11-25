@@ -1,0 +1,132 @@
+{
+  "schema": "kitforge.build_recipe.v1",
+  "slug": "kubernetes",
+  "image": "readystack/kubernetes:v1.37.2-CE-ubuntu24.04-r4",
+  "build_method": "source-rebuild-go",
+  "source": {
+    "repo": "https://github.com/kubernetes/kubernetes",
+    "ref": "v1.37.2",
+    "commit": "c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32",
+    "source_date_epoch": 1795161084,
+    "source_date_epoch_provenance": "the time release v1.37.2-CE-ubuntu24.04-r4 was cut (2026-11-20T07:51:24Z), by scripts/retarget.py --rev-bump: ReadyStack dates an image by when its release was packaged (owner 2026-11-10), recorded here once and used by every rebuild of the release; it builds upstream commit c50e5395f1ae, dated 2026-10-27T12:01:04Z (source.commit_epoch).",
+    "builder_image": "golang:1.26.11-bookworm",
+    "go_version_required": "1.26.0",
+    "vendor_committed": true,
+    "components": [
+      {
+        "repo": "https://github.com/kubernetes/kubernetes",
+        "ref": "v1.37.2",
+        "commit": "c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32",
+        "license": "Apache-2.0"
+      },
+      {
+        "repo": "https://github.com/containerd/containerd",
+        "ref": "v2.4.2",
+        "commit": "b7a25261e029d68978bbf290df0a62fc819b3c51",
+        "license": "Apache-2.0"
+      },
+      {
+        "repo": "https://github.com/opencontainers/runc",
+        "ref": "v1.5.2",
+        "commit": "29dd3dc2b13b4123162e5fe132504bb4b15569f1",
+        "license": "Apache-2.0"
+      },
+      {
+        "repo": "https://github.com/containernetworking/plugins",
+        "ref": "v1.9.1",
+        "commit": "adc3e6b5b581638afbd194cf2e9319ecbb0151a1",
+        "license": "Apache-2.0"
+      },
+      {
+        "repo": "https://github.com/kubernetes-sigs/cri-tools",
+        "ref": "v1.37.0",
+        "commit": "13496db06e3f6636a0855977dd86344698dfc501",
+        "license": "Apache-2.0"
+      },
+      {
+        "repo": "https://github.com/etcd-io/etcd",
+        "ref": "v3.7.2",
+        "commit": "68c065e562994b89e333e77b039ad066f933c586",
+        "license": "Apache-2.0"
+      },
+      {
+        "repo": "https://github.com/coredns/coredns",
+        "ref": "v1.15.0",
+        "commit": "a6fde3fe339c6ec848447e11cc9796be8c97b4e0",
+        "license": "Apache-2.0"
+      }
+    ],
+    "_version_note": "Each component is its project's latest GA on 2026-10-22 (GitHub releases): kubernetes v1.37.2 (2026-10-28, read 2026-11-03; the other six unchanged from the 2026-10-22 reading, except etcd v3.7.3 now exists and is not taken: see the PR), containerd v2.4.2 (2026-10-13), runc v1.5.2 (2026-09-25), CNI plugins v1.9.1 (2026-03-16), cri-tools v1.37.0 (2026-09-01), etcd v3.7.2 (2026-09-22), CoreDNS v1.15.0 (2026-10-21). kubeadm v1.37 names etcd 3.7.0-0, CoreDNS v1.14.6 and pause 3.10.2 as its defaults; this image runs etcd 3.7.2 and CoreDNS 1.15.0 (newer patch/minor of the same lines) and pause 3.10.2 from kubernetes' own build/pause.",
+    "source_date_epoch_basis": "release-cut",
+    "commit_epoch": 1793102464
+  },
+  "binaries_from_source": [
+    {
+      "name": "kube-apiserver",
+      "main_pkg": "./cmd/kube-apiserver",
+      "ldflags": "-s -w -X k8s.io/client-go/pkg/version.gitVersion=@VERSION@ -X k8s.io/client-go/pkg/version.gitCommit=@COMMIT@ -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitMajor=1 -X k8s.io/client-go/pkg/version.gitMinor=37 -X k8s.io/component-base/version.gitVersion=@VERSION@ -X k8s.io/component-base/version.gitCommit=@COMMIT@ -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitMajor=1 -X k8s.io/component-base/version.gitMinor=37",
+      "out_path": "/usr/local/bin/kube-apiserver",
+      "verify_subcmd": "--version",
+      "verify_contains": "@VERSION@"
+    },
+    {
+      "name": "kube-controller-manager",
+      "main_pkg": "./cmd/kube-controller-manager",
+      "ldflags": "-s -w -X k8s.io/client-go/pkg/version.gitVersion=@VERSION@ -X k8s.io/client-go/pkg/version.gitCommit=@COMMIT@ -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitMajor=1 -X k8s.io/client-go/pkg/version.gitMinor=37 -X k8s.io/component-base/version.gitVersion=@VERSION@ -X k8s.io/component-base/version.gitCommit=@COMMIT@ -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitMajor=1 -X k8s.io/component-base/version.gitMinor=37",
+      "out_path": "/usr/local/bin/kube-controller-manager",
+      "verify_subcmd": "--version",
+      "verify_contains": "@VERSION@"
+    },
+    {
+      "name": "kube-scheduler",
+      "main_pkg": "./cmd/kube-scheduler",
+      "ldflags": "-s -w -X k8s.io/client-go/pkg/version.gitVersion=@VERSION@ -X k8s.io/client-go/pkg/version.gitCommit=@COMMIT@ -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitMajor=1 -X k8s.io/client-go/pkg/version.gitMinor=37 -X k8s.io/component-base/version.gitVersion=@VERSION@ -X k8s.io/component-base/version.gitCommit=@COMMIT@ -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitMajor=1 -X k8s.io/component-base/version.gitMinor=37",
+      "out_path": "/usr/local/bin/kube-scheduler",
+      "verify_subcmd": "--version",
+      "verify_contains": "@VERSION@"
+    },
+    {
+      "name": "kubelet",
+      "main_pkg": "./cmd/kubelet",
+      "ldflags": "-s -w -X k8s.io/client-go/pkg/version.gitVersion=@VERSION@ -X k8s.io/client-go/pkg/version.gitCommit=@COMMIT@ -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitMajor=1 -X k8s.io/client-go/pkg/version.gitMinor=37 -X k8s.io/component-base/version.gitVersion=@VERSION@ -X k8s.io/component-base/version.gitCommit=@COMMIT@ -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitMajor=1 -X k8s.io/component-base/version.gitMinor=37",
+      "out_path": "/usr/local/bin/kubelet",
+      "verify_subcmd": "--version",
+      "verify_contains": "@VERSION@"
+    },
+    {
+      "name": "kube-proxy",
+      "main_pkg": "./cmd/kube-proxy",
+      "ldflags": "-s -w -X k8s.io/client-go/pkg/version.gitVersion=@VERSION@ -X k8s.io/client-go/pkg/version.gitCommit=@COMMIT@ -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitMajor=1 -X k8s.io/client-go/pkg/version.gitMinor=37 -X k8s.io/component-base/version.gitVersion=@VERSION@ -X k8s.io/component-base/version.gitCommit=@COMMIT@ -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitMajor=1 -X k8s.io/component-base/version.gitMinor=37",
+      "out_path": "/usr/local/bin/kube-proxy",
+      "verify_subcmd": "--version",
+      "verify_contains": "@VERSION@"
+    },
+    {
+      "name": "kubectl",
+      "main_pkg": "./cmd/kubectl",
+      "ldflags": "-s -w -X k8s.io/client-go/pkg/version.gitVersion=@VERSION@ -X k8s.io/client-go/pkg/version.gitCommit=@COMMIT@ -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitMajor=1 -X k8s.io/client-go/pkg/version.gitMinor=37 -X k8s.io/component-base/version.gitVersion=@VERSION@ -X k8s.io/component-base/version.gitCommit=@COMMIT@ -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitMajor=1 -X k8s.io/component-base/version.gitMinor=37",
+      "out_path": "/usr/local/bin/kubectl",
+      "verify_subcmd": "version --client",
+      "verify_contains": "@VERSION@"
+    },
+    {
+      "name": "kubeadm",
+      "main_pkg": "./cmd/kubeadm",
+      "ldflags": "-s -w -X k8s.io/client-go/pkg/version.gitVersion=@VERSION@ -X k8s.io/client-go/pkg/version.gitCommit=@COMMIT@ -X k8s.io/client-go/pkg/version.gitTreeState=clean -X k8s.io/client-go/pkg/version.gitMajor=1 -X k8s.io/client-go/pkg/version.gitMinor=37 -X k8s.io/component-base/version.gitVersion=@VERSION@ -X k8s.io/component-base/version.gitCommit=@COMMIT@ -X k8s.io/component-base/version.gitTreeState=clean -X k8s.io/component-base/version.gitMajor=1 -X k8s.io/component-base/version.gitMinor=37",
+      "out_path": "/usr/local/bin/kubeadm",
+      "verify_subcmd": "version -o short",
+      "verify_contains": "@VERSION@"
+    }
+  ],
+  "runtime_packages": [
+    "ca-certificates",
+    "curl",
+    "tzdata",
+    "supervisor",
+    "openssl",
+    "iptables",
+    "iproute2",
+    "conntrack",
+    "libseccomp2"
+  ]
+}

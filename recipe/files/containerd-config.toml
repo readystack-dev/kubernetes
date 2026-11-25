@@ -1,0 +1,27 @@
+# containerd configuration for the single-node mode. Only what differs from `containerd config default` (containerd
+# v2.4) is set: the sandbox image is the pause image built from source with this image (imported by kube-svc before
+# kubelet starts, never pulled). kube-entrypoint.sh renders @SNAPSHOTTER@ (overlayfs when /var/lib/containerd is a
+# volume, else native) into /run/kubernetes/containerd.toml, which containerd runs with.
+version = 3
+root = "/var/lib/containerd"
+state = "/run/containerd"
+
+[grpc]
+  address = "/run/containerd/containerd.sock"
+
+[plugins]
+  [plugins."io.containerd.cri.v1.images"]
+    snapshotter = "@SNAPSHOTTER@"
+    [plugins."io.containerd.cri.v1.images".pinned_images]
+      sandbox = "localhost/kubernetes/pause:3.10.2"
+
+  [plugins."io.containerd.cri.v1.runtime"]
+    [plugins."io.containerd.cri.v1.runtime".containerd]
+      default_runtime_name = "runc"
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
+        runtime_type = "io.containerd.runc.v2"
+        [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc.options]
+          SystemdCgroup = false
+    [plugins."io.containerd.cri.v1.runtime".cni]
+      bin_dirs = ["/opt/cni/bin"]
+      conf_dir = "/etc/cni/net.d"

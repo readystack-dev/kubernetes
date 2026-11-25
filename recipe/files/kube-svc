@@ -1,0 +1,101 @@
+#!/bin/bash
+# kube-svc <program>: start one supervisord program with this start's settings (/run/kubernetes/env, written by
+# kube-entrypoint.sh). Control-plane flags are the ones kubeadm v1.37 writes into its static-pod manifests.
+set -euo pipefail
+. /run/kubernetes/env
+K=/var/lib/kubernetes
+P="$K/pki"
+R=/run/kubernetes
+wait_api() { for _ in $(seq 1 300); do curl -fsk https://127.0.0.1:6443/readyz >/dev/null 2>&1 && return 0; sleep 1; done; return 1; }
+
+case "$1" in
+  etcd)
+    exec etcd --name=etcd --data-dir="$K/etcd" \
+      --listen-client-urls=https://127.0.0.1:2379 --advertise-client-urls=https://127.0.0.1:2379 \
+      --listen-peer-urls=https://127.0.0.1:2380 --initial-advertise-peer-urls=https://127.0.0.1:2380 \
+      --initial-cluster=etcd=https://127.0.0.1:2380 --listen-metrics-urls=http://127.0.0.1:2381 \
+      --cert-file="$P/etcd/server.crt" --key-file="$P/etcd/server.key" --client-cert-auth=true \
+      --trusted-ca-file="$P/etcd/ca.crt" --peer-cert-file="$P/etcd/peer.crt" --peer-key-file="$P/etcd/peer.key" \
+      --peer-client-cert-auth=true --peer-trusted-ca-file="$P/etcd/ca.crt" --snapshot-count=10000 \
+      --feature-gates=InitialCorruptCheck=true --watch-progress-notify-interval=5s ;;
+  kube-apiserver)
+    # shellcheck disable=SC2086
+    exec kube-apiserver --advertise-address="$ADVERTISE" --secure-port=6443 --bind-address=0.0.0.0 \
+      --allow-privileged=true --authorization-mode=Node,RBAC --enable-admission-plugins=NodeRestriction \
+      --enable-bootstrap-token-auth=true --client-ca-file="$P/ca.crt" \
+      --tls-cert-file="$P/apiserver.crt" --tls-private-key-file="$P/apiserver.key" \
+      --kubelet-client-certificate="$P/apiserver-kubelet-client.crt" --kubelet-client-key="$P/apiserver-kubelet-client.key" \
+      --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname \
+      --proxy-client-cert-file="$P/front-proxy-client.crt" --proxy-client-key-file="$P/front-proxy-client.key" \
+      --requestheader-allowed-names=front-proxy-client --requestheader-client-ca-file="$P/front-proxy-ca.crt" \
+      --requestheader-extra-headers-prefix=X-Remote-Extra- --requestheader-group-headers=X-Remote-Group \
+      --requestheader-username-headers=X-Remote-User \
+      --service-account-issuer=https://kubernetes.default.svc.cluster.local \
+      --service-account-key-file="$P/sa.pub" --service-account-signing-key-file="$P/sa.key" \
+      --service-cluster-ip-range="$SVC_CIDR" --etcd-servers=https://127.0.0.1:2379 \
+      --etcd-cafile="$P/etcd/ca.crt" --etcd-certfile="$P/apiserver-etcd-client.crt" \
+      --etcd-keyfile="$P/apiserver-etcd-client.key" $EXTRA_APISERVER_ARGS ;;
+  kube-controller-manager)
+    exec kube-controller-manager --kubeconfig="$K/controller-manager.conf" \
+      --authentication-kubeconfig="$K/controller-manager.conf" --authorization-kubeconfig="$K/controller-manager.conf" \
+      --bind-address=127.0.0.1 --client-ca-file="$P/ca.crt" --cluster-name=kubernetes \
+      --cluster-signing-cert-file="$P/ca.crt" --cluster-signing-key-file="$P/ca.key" \
+      --controllers='*,bootstrapsigner,tokencleaner' --leader-elect=true \
+      --requestheader-client-ca-file="$P/front-proxy-ca.crt" --root-ca-file="$P/ca.crt" \
+      --service-account-private-key-file="$P/sa.key" --use-service-account-credentials=true \
+      --allocate-node-cidrs=true --cluster-cidr="$POD_CIDR" --service-cluster-ip-range="$SVC_CIDR" ;;
+  kube-scheduler)
+    exec kube-scheduler --kubeconfig="$K/scheduler.conf" \
+      --authentication-kubeconfig="$K/scheduler.conf" --authorization-kubeconfig="$K/scheduler.conf" \
+      --bind-address=127.0.0.1 --leader-elect=true ;;
+  containerd)
+    exec containerd --config "$R/containerd.toml" ;;
+  kubelet)
+    # The sandbox ("pause") image is built from source with this image and imported before kubelet starts, so no
+    # Pod waits on a registry for it.
+    for _ in $(seq 1 120); do [ -S /run/containerd/containerd.sock ] && ctr version >/dev/null 2>&1 && break; sleep 1; done
+    ctr -n k8s.io images import /usr/local/lib/kubernetes/pause.oci.tar >/dev/null
+    sed -e "s#@DNS_IP@#$DNS_IP#" /etc/kubernetes/kubelet.yaml > "$R/kubelet.yaml"
+    printf 'nameserver %s\n' "$ADVERTISE" > "$R/resolv.conf"
+    # shellcheck disable=SC2086
+    exec kubelet --config="$R/kubelet.yaml" --kubeconfig="$K/kubelet.conf" --hostname-override="$NODE_NAME" \
+      --node-ip="$ADVERTISE" $EXTRA_KUBELET_ARGS ;;
+  kube-proxy)
+    sed -e "s#@POD_CIDR@#$POD_CIDR#" /etc/kubernetes/kube-proxy.yaml > "$R/kube-proxy.yaml"
+    exec kube-proxy --config="$R/kube-proxy.yaml" --hostname-override="$NODE_NAME" ;;
+  coredns)
+    sed -e "s#@ADVERTISE@#$ADVERTISE#" /etc/kubernetes/Corefile > "$R/Corefile"
+    exec coredns -conf "$R/Corefile" ;;
+  kube-init)
+    # What `kubeadm init` does after the control plane is up, with super-admin.conf: once at start, then re-checked
+    # every 5 minutes (idempotent), so a deleted binding or a stale DNS endpoint is put back.
+    S=(kubectl --kubeconfig "$K/super-admin.conf" --server https://127.0.0.1:6443)
+    reconcile() {
+      wait_api || { echo "kube-init: the API is not ready" >&2; return 1; }
+      "${S[@]}" apply -f /etc/kubernetes/cluster-rbac.yaml >/dev/null || return 1
+      [ "$MODE" = node ] || return 0
+      # Cluster DNS: CoreDNS runs in this container on its address; the kube-dns Service (the address kubelet gives
+      # every Pod) points at it through an EndpointSlice kept current here.
+      sed -e "s#@DNS_IP@#$DNS_IP#g" -e "s#@ADVERTISE@#$ADVERTISE#g" /etc/kubernetes/cluster-dns.yaml \
+        | "${S[@]}" apply -f - >/dev/null || return 1
+      # The node registers itself; the controller manager gives it a Pod CIDR, which the CNI network then uses.
+      local cidr="" mtu
+      for _ in $(seq 1 300); do
+        cidr=$("${S[@]}" get node "$NODE_NAME" -o jsonpath='{.spec.podCIDR}' 2>/dev/null || true)
+        [ -n "$cidr" ] && break; sleep 1
+      done
+      [ -n "$cidr" ] || { echo "kube-init: node $NODE_NAME has no Pod CIDR yet" >&2; return 1; }
+      "${S[@]}" label node "$NODE_NAME" node-role.kubernetes.io/control-plane= --overwrite >/dev/null || return 1
+      mtu=$(cat /sys/class/net/eth0/mtu 2>/dev/null || echo 1500)
+      sed -e "s#@POD_SUBNET@#$cidr#" -e "s#@MTU@#$mtu#" /etc/kubernetes/cni.conflist > /etc/cni/net.d/.10-readystack.conflist
+      if cmp -s /etc/cni/net.d/.10-readystack.conflist /etc/cni/net.d/10-readystack.conflist; then
+        rm -f /etc/cni/net.d/.10-readystack.conflist
+      else
+        mv /etc/cni/net.d/.10-readystack.conflist /etc/cni/net.d/10-readystack.conflist
+      fi
+    }
+    reconcile || exit 1
+    echo "kube-init: done ($MODE); re-checking every 5 minutes"
+    while sleep 300; do reconcile || echo "kube-init: re-check failed; next try in 5 minutes" >&2; done ;;
+  *) echo "kube-svc: unknown program $1" >&2; exit 2 ;;
+esac

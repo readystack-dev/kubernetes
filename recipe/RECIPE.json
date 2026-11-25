@@ -1,0 +1,418 @@
+{
+ "schema": "readystack.recipe.v1",
+ "slug": "kubernetes",
+ "tag": "v1.37.2-CE-ubuntu24.04-r4",
+ "tarball": "ReadyStack-kubernetes-v1.37.2-CE-ubuntu24.04-r4.tar.gz",
+ "tarball_sha256": "ac5eb73543c5945b9a54d638802571069bce83135cf67d60b96546e5129170b1",
+ "kit_root": "v1.37.2-CE-ubuntu24.04-r4",
+ "generated_at": "2026-11-21T09:28:54Z",
+ "generator": "KitForge release/recipe_publish.py",
+ "dockerfile": "Dockerfile.offline.pinned",
+ "build_script": "BUILD_OFFLINE.sh",
+ "preview_lines": 24,
+ "pins": {
+  "upstream": {
+   "repo": "https://github.com/kubernetes/kubernetes",
+   "ref": "v1.37.2",
+   "commit": "c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32",
+   "url": "https://github.com/kubernetes/kubernetes/tree/c50e5395f1ae2d4a2c05f28fdcc38c0916cc1a32",
+   "from": "docs/provenance/BUILD_RECIPE.json"
+  },
+  "components": [
+   {
+    "repo": "https://github.com/containerd/containerd",
+    "ref": "v2.4.2",
+    "commit": "b7a25261e029d68978bbf290df0a62fc819b3c51",
+    "url": "https://github.com/containerd/containerd/tree/b7a25261e029d68978bbf290df0a62fc819b3c51",
+    "from": "docs/provenance/BUILD_RECIPE.json"
+   },
+   {
+    "repo": "https://github.com/opencontainers/runc",
+    "ref": "v1.5.2",
+    "commit": "29dd3dc2b13b4123162e5fe132504bb4b15569f1",
+    "url": "https://github.com/opencontainers/runc/tree/29dd3dc2b13b4123162e5fe132504bb4b15569f1",
+    "from": "docs/provenance/BUILD_RECIPE.json"
+   },
+   {
+    "repo": "https://github.com/containernetworking/plugins",
+    "ref": "v1.9.1",
+    "commit": "adc3e6b5b581638afbd194cf2e9319ecbb0151a1",
+    "url": "https://github.com/containernetworking/plugins/tree/adc3e6b5b581638afbd194cf2e9319ecbb0151a1",
+    "from": "docs/provenance/BUILD_RECIPE.json"
+   },
+   {
+    "repo": "https://github.com/kubernetes-sigs/cri-tools",
+    "ref": "v1.37.0",
+    "commit": "13496db06e3f6636a0855977dd86344698dfc501",
+    "url": "https://github.com/kubernetes-sigs/cri-tools/tree/13496db06e3f6636a0855977dd86344698dfc501",
+    "from": "docs/provenance/BUILD_RECIPE.json"
+   },
+   {
+    "repo": "https://github.com/etcd-io/etcd",
+    "ref": "v3.7.2",
+    "commit": "68c065e562994b89e333e77b039ad066f933c586",
+    "url": "https://github.com/etcd-io/etcd/tree/68c065e562994b89e333e77b039ad066f933c586",
+    "from": "docs/provenance/BUILD_RECIPE.json"
+   },
+   {
+    "repo": "https://github.com/coredns/coredns",
+    "ref": "v1.15.0",
+    "commit": "a6fde3fe339c6ec848447e11cc9796be8c97b4e0",
+    "url": "https://github.com/coredns/coredns/tree/a6fde3fe339c6ec848447e11cc9796be8c97b4e0",
+    "from": "docs/provenance/BUILD_RECIPE.json"
+   }
+  ],
+  "fetches": [
+   {
+    "kind": "git",
+    "url": "https://github.com/kubernetes/kubernetes.git",
+    "ref": "v1.37.2"
+   },
+   {
+    "kind": "git",
+    "url": "https://github.com/containerd/containerd.git",
+    "ref": "v2.4.2"
+   },
+   {
+    "kind": "git",
+    "url": "https://github.com/opencontainers/runc.git",
+    "ref": "v1.5.2"
+   },
+   {
+    "kind": "git",
+    "url": "https://github.com/containernetworking/plugins.git",
+    "ref": "v1.9.1"
+   },
+   {
+    "kind": "git",
+    "url": "https://github.com/kubernetes-sigs/cri-tools.git",
+    "ref": "v1.37.0"
+   },
+   {
+    "kind": "git",
+    "url": "https://github.com/etcd-io/etcd.git",
+    "ref": "v3.7.2"
+   },
+   {
+    "kind": "git",
+    "url": "https://github.com/coredns/coredns.git",
+    "ref": "v1.15.0"
+   }
+  ],
+  "bases": [
+   {
+    "ref": "golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0",
+    "image": "golang:1.26.11-bookworm",
+    "digest": "sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0"
+   },
+   {
+    "ref": "ubuntu:24.04@sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289",
+    "image": "ubuntu:24.04",
+    "digest": "sha256:9c7f200c07e3d4a03e7249d2c16bf66a51120fb876aa2242cf31451412543289"
+   }
+  ],
+  "toolchain": {
+   "buildkit": "moby/buildkit:v0.31.2",
+   "buildkit_image_digest": "sha256:e0e67ea9c4bb07bdef683e29f70f3b623d1eb9c82274a9ec04e6bb0511449fb0",
+   "builder_images": [
+    "golang:1.26.11-bookworm@sha256:dc40a13b61304647ed7e5d581d246b86413dfc29d63c6d018310feb93cd98fc0"
+   ]
+  },
+  "build_method": "source-rebuild-go",
+  "source_date_epoch": 1795161084,
+  "source_date_epoch_utc": "2026-11-20T07:51:24Z",
+  "target": {
+   "image_manifest_digest": "sha256:8e96c66033909e37d0116d6376e20474391c1251dd244745db7c5bca55b69ab5",
+   "config_digest": "sha256:0cb5d9fd78bd9a455670e57ecc4755529053401473c863d3c05008b423ddb8ad",
+   "image": "readystack/kubernetes:v1.37.2-CE-ubuntu24.04-r4"
+  },
+  "checksummed_files": 93022
+ },
+ "files": [
+  {
+   "path": "BASES.tsv",
+   "size": 264,
+   "sha256": "4b98a700d33a9f62c6299744be2f31889777ec9f3b1cf9150d02a25daa1a297d",
+   "lines": 2,
+   "public": "full"
+  },
+  {
+   "path": "BUILD_OFFLINE.sh",
+   "size": 8856,
+   "sha256": "6ab4f08a6ec775b32d854f03413b30ecfe555ddba78cf0de956235f5a2a39542",
+   "lines": 162,
+   "public": "preview",
+   "preview_lines": 24
+  },
+  {
+   "path": "CHECKSUMS.sha256",
+   "size": 14620030,
+   "sha256": "fd03d34d8d83d18bba3a7e431a34ef356e91a59ab52c04248001d7c379c94049",
+   "lines": 93022,
+   "public": "account",
+   "stored": "gzip"
+  },
+  {
+   "path": "Corefile",
+   "size": 622,
+   "sha256": "3a5d7b8a106f7d1be4533de32ca4901c770cc2d08f93086db0a00224389aa270",
+   "lines": 22,
+   "public": "account"
+  },
+  {
+   "path": "DOCKERFILE_NAME.txt",
+   "size": 26,
+   "sha256": "9aadd1ede68e016a6f163c97befc5ff2fcdc8ebd4f84b108dba63cb195fa8c84",
+   "lines": 1,
+   "public": "full"
+  },
+  {
+   "path": "Dockerfile",
+   "size": 13674,
+   "sha256": "5ec8451e4a133ca373410591a531abbe8b900b42138474a9dba5f7468238fc7d",
+   "lines": 177,
+   "public": "account"
+  },
+  {
+   "path": "Dockerfile.offline",
+   "size": 13674,
+   "sha256": "5ec8451e4a133ca373410591a531abbe8b900b42138474a9dba5f7468238fc7d",
+   "lines": 177,
+   "public": "account"
+  },
+  {
+   "path": "Dockerfile.offline.pinned",
+   "size": 13674,
+   "sha256": "5ec8451e4a133ca373410591a531abbe8b900b42138474a9dba5f7468238fc7d",
+   "lines": 177,
+   "public": "preview",
+   "preview_lines": 24
+  },
+  {
+   "path": "Dockerfile.vendor",
+   "size": 14983,
+   "sha256": "f5b9589d20f95fbd4c820bef3f94e24a4e444378ca81fe2e6608cbb327aee1f3",
+   "lines": 180,
+   "public": "account"
+  },
+  {
+   "path": "FILE_MODES.tsv",
+   "size": 10041328,
+   "sha256": "1c37dbf2029a019239597f07857bcd7a2ff60b244c51ed17f4d354a753b04957",
+   "lines": 111126,
+   "public": "account",
+   "stored": "gzip"
+  },
+  {
+   "path": "MANIFEST.txt",
+   "size": 8294564,
+   "sha256": "7340ce7f402b0118c4627e8a93da729f6b91e3d66dd9f345bf99cd9c7f66deed",
+   "lines": 93024,
+   "public": "account",
+   "stored": "gzip"
+  },
+  {
+   "path": "README.md",
+   "size": 3319,
+   "sha256": "5ec4d7fb710f549aa48b321ae753d8d37898db051b429d983903dbcd9f3f0f5b",
+   "lines": 39,
+   "public": "account"
+  },
+  {
+   "path": "SOURCE_DATE_EPOCH.txt",
+   "size": 11,
+   "sha256": "a987d0a62210a629fbaecc1a348745e5af197d41716f9af703c66f0f0777caf7",
+   "lines": 1,
+   "public": "full"
+  },
+  {
+   "path": "TARGET_DIGEST.txt",
+   "size": 329,
+   "sha256": "d6762ba1b62f14e2989875ed2999c897f2382a7080a0dbc22afe5cad2b3f6b40",
+   "lines": 7,
+   "public": "full"
+  },
+  {
+   "path": "VERIFY_OFFLINE.sh",
+   "size": 10153,
+   "sha256": "3e8184ea230cfd8f41f977e26be6bf7bd03112c396c517837ce0c7de4f7399dd",
+   "lines": 165,
+   "public": "account"
+  },
+  {
+   "path": "cluster-dns.yaml",
+   "size": 1441,
+   "sha256": "6ad614434fe0451a51676687112aed3beb8285f225ec7b7475cad54309517f41",
+   "lines": 66,
+   "public": "account"
+  },
+  {
+   "path": "cluster-rbac.yaml",
+   "size": 943,
+   "sha256": "e1a3c30508c767bb54b9de8c6461165221502ee2410900103bae14bee321e249",
+   "lines": 28,
+   "public": "account"
+  },
+  {
+   "path": "cni.conflist",
+   "size": 423,
+   "sha256": "02918797d3cd3021a37b31853d407c6e46123c578f3a7e0feb3546015c8dd5df",
+   "lines": 21,
+   "public": "account"
+  },
+  {
+   "path": "containerd-config.toml",
+   "size": 1240,
+   "sha256": "bb00a26b4727946bab9c7f6edf639081fb409af72cfefb730fe73a396ce9003f",
+   "lines": 27,
+   "public": "account"
+  },
+  {
+   "path": "crictl.yaml",
+   "size": 124,
+   "sha256": "ad526395cca4db1e3ea166ddabbba23707829b104215d122f05f8e582cef9050",
+   "lines": 3,
+   "public": "account"
+  },
+  {
+   "path": "docs/PROVENANCE.md",
+   "size": 2616,
+   "sha256": "afeeb12b18884634d594e4126e3238d9bfc278181ad4c0efbd29285f313bbdb7",
+   "lines": 36,
+   "public": "account"
+  },
+  {
+   "path": "docs/REBUILD.md",
+   "size": 6143,
+   "sha256": "d5b0aea09daa7831c9ab606864ab09428e82cc8a4b9621c71633ff346b117712",
+   "lines": 60,
+   "public": "account"
+  },
+  {
+   "path": "docs/VERIFY.md",
+   "size": 2044,
+   "sha256": "bb5f3365ce19a33233c4b8eea54b8d32ed8d3d443b6d445d3f53cfdc26847336",
+   "lines": 34,
+   "public": "account"
+  },
+  {
+   "path": "docs/provenance/BASE_IMAGE_DIGESTS.lock",
+   "size": 76,
+   "sha256": "0c27c3d4b5c5c193f7a7e3a7fc33e8629bd1e95e78959c9ee64ae67ce5bce7ba",
+   "lines": 2,
+   "public": "full"
+  },
+  {
+   "path": "docs/provenance/BUILD_RECIPE.json",
+   "size": 8242,
+   "sha256": "8949aecc2a3c8c37c126896bbf803e759608245ea1c9897eb86ca2c9d2e4b5ea",
+   "lines": 132,
+   "public": "account"
+  },
+  {
+   "path": "docs/provenance/CUSTODY_INPUTS.json",
+   "size": 657,
+   "sha256": "e6940adf5427c48e1af16728e47b38aeb7fc0232acbb4d7ad53b67c0b4808c81",
+   "lines": 17,
+   "public": "account"
+  },
+  {
+   "path": "docs/provenance/SOURCE_FILE_MANIFEST.json",
+   "size": 262600,
+   "sha256": "56536f66277811ef395f0323d98f91431416cf4904c224d893674d0dcc746bcd",
+   "lines": 5007,
+   "public": "account",
+   "stored": "gzip"
+  },
+  {
+   "path": "docs/provenance/SOURCE_TREE_HASH.json",
+   "size": 316,
+   "sha256": "a20cdf36bfdd6c55bbdddf68820024bc9d65d5602967ec07c5cb99ce2efea36f",
+   "lines": 9,
+   "public": "full"
+  },
+  {
+   "path": "docs/provenance/SYSTEM_PINNING.lock",
+   "size": 87,
+   "sha256": "eb3022ff0e9743252c3c5b7554ea6dff2b62dd39551e14364f6771bee01cfb6d",
+   "lines": 9,
+   "public": "account"
+  },
+  {
+   "path": "docs/provenance/TOOLCHAIN.lock",
+   "size": 11087,
+   "sha256": "08f88572156313bf48e6d009490449626e8661e1e87cf6e6648da35bab521b6d",
+   "lines": 204,
+   "public": "account"
+  },
+  {
+   "path": "kube-entrypoint.sh",
+   "size": 12876,
+   "sha256": "27eaac9e19a66377c156d4696dd1675e18236b9e7f8066da24fb393368e68dad",
+   "lines": 220,
+   "public": "account"
+  },
+  {
+   "path": "kube-proxy.yaml",
+   "size": 601,
+   "sha256": "4278a49049b9a9d2b900d820581ebfc10941e8b06d848294c71a9d7b3e0738fe",
+   "lines": 16,
+   "public": "account"
+  },
+  {
+   "path": "kube-svc",
+   "size": 6847,
+   "sha256": "95a9a9535bdf6f00bde556f6d562594d12e544c77cd1ae4ebbdca438341cbb01",
+   "lines": 101,
+   "public": "account"
+  },
+  {
+   "path": "kubelet.yaml",
+   "size": 1153,
+   "sha256": "1bdfcc80a6ed16c36e31b570d58da7c041a85af68a2cf781a509163ae81b1c4b",
+   "lines": 35,
+   "public": "account"
+  },
+  {
+   "path": "mk-pause-oci.sh",
+   "size": 2012,
+   "sha256": "3418ca726981c66d8150628bda265b50bb734ed02f27109dd992c92edcafd33d",
+   "lines": 22,
+   "public": "account"
+  },
+  {
+   "path": "rebuild.json",
+   "size": 1466,
+   "sha256": "411377de166dfd959f9b68e5bb99e2462d1dadfa6c96688d59e6867d8aa3126c",
+   "lines": 38,
+   "public": "account"
+  },
+  {
+   "path": "toolchain/BUILDKIT_TAG.txt",
+   "size": 22,
+   "sha256": "fcd530eeb02b063d2f047adad6eef896422a8e8d558513e5f09b2a262be32573",
+   "lines": 1,
+   "public": "full"
+  }
+ ],
+ "skipped": [],
+ "kit_adds": {
+  "bases": {
+   "files": 16,
+   "bytes": 326685578
+  },
+  "docs": {
+   "files": 31330,
+   "bytes": 271756977
+  },
+  "toolchain": {
+   "files": 1,
+   "bytes": 111529472
+  },
+  "vendored": {
+   "files": 61640,
+   "bytes": 587651378
+  }
+ },
+ "redacted_files": 0
+}

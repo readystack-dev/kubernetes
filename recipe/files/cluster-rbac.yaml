@@ -1,0 +1,28 @@
+# Applied by kube-init at every start: the two RBAC bindings `kubeadm init` creates.
+# admin.conf's user is in group kubeadm:cluster-admins (kubeadm >= 1.29), which has no rights until this binding.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubeadm:cluster-admins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: kubeadm:cluster-admins
+---
+# The API server's client certificate for kubelets (logs, exec, port-forward): kubeadm's kubeadm:apiserver-kubelet-client.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubeadm:apiserver-kubelet-client
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:kubelet-api-admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: User
+    name: kube-apiserver-kubelet-client
